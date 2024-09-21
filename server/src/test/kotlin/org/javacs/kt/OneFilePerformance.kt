@@ -1,7 +1,6 @@
 package org.javacs.kt
 
 import org.javacs.kt.util.LoggingMessageCollector
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.compiler.CliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
@@ -15,7 +14,6 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.resolve.BindingTraceContext
 import org.jetbrains.kotlin.resolve.LazyTopDownAnalyzer
 import org.jetbrains.kotlin.resolve.TopDownAnalysisMode
@@ -33,22 +31,27 @@ import java.nio.charset.StandardCharsets
 class OneFilePerformance {
     @State(Scope.Thread)
     class ReusableParts : Closeable {
-        internal var config = CompilerConfiguration()
+        private var config = CompilerConfiguration()
         init {
             config.put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME)
-            config.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, LoggingMessageCollector)
+            config.put(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY, LoggingMessageCollector)
         }
-        internal val disposable = Disposer.newDisposable()
-        internal var env = KotlinCoreEnvironment.createForProduction(
+        private val disposable = Disposer.newDisposable()
+        private var env = KotlinCoreEnvironment.createForProduction(
             disposable, config, EnvironmentConfigFiles.JVM_CONFIG_FILES
         )
-        internal var parser = KtPsiFactory(env.project)
-        internal var fileSystem = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.FILE_PROTOCOL)
+        private var fileSystem = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.FILE_PROTOCOL)
         internal var bigFile = openFile("/kotlinCompilerPerformance/BigFile.kt")
 
-        internal fun openFile(resourcePath: String?): KtFile {
+        internal fun openFile(resourcePath: String): KtFile {
             val locate = OneFilePerformance::class.java.getResource(resourcePath)
-            val file = fileSystem.findFileByPath(URLDecoder.decode(locate.path, StandardCharsets.UTF_8.toString()))
+                ?: throw IllegalArgumentException("Resource not found: $resourcePath")
+
+            // Decode the file path, handling platform-specific file separators
+            val decodedPath = URLDecoder.decode(locate.path, StandardCharsets.UTF_8.toString())
+            val normalizedPath = decodedPath.replaceFirst("^/(.:/)".toRegex(), "$1")
+
+            val file = fileSystem.findFileByPath(normalizedPath)
             return PsiManager.getInstance(env.project).findFile(file!!) as KtFile
         }
 

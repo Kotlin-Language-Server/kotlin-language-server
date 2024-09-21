@@ -10,7 +10,7 @@ plugins {
 }
 
 val debugPort = 8000
-val debugArgs = "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n,quiet=y"
+val debugArgs = "-agentlib:jdwp=transport=dt_socket,server=y,address=$debugPort,suspend=n,quiet=y"
 
 val serverMainClassName = "org.javacs.kt.MainKt"
 val applicationName = "kotlin-language-server"
@@ -19,9 +19,6 @@ application {
     mainClass.set(serverMainClassName)
     description = "Code completions, diagnostics and more for Kotlin"
     applicationDefaultJvmArgs = listOf("-DkotlinLanguageServer.version=$version")
-    applicationDistribution.into("bin") {
-        fileMode = 755
-    }
 }
 
 repositories {
@@ -32,14 +29,11 @@ repositories {
     mavenCentral()
 }
 
+
 dependencies {
-    // dependencies are constrained to versions defined
-    // in /platform/build.gradle.kts
+    // Implementation dependencies: libraries required for your application
     implementation(platform(project(":platform")))
-    annotationProcessor(platform(project(":platform")))
-
     implementation(project(":shared"))
-
     implementation("org.eclipse.lsp4j:org.eclipse.lsp4j")
     implementation("org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc")
     implementation(kotlin("compiler"))
@@ -56,16 +50,22 @@ dependencies {
     implementation("com.beust:jcommander")
     implementation("org.xerial:sqlite-jdbc")
 
+    // Test dependencies: libraries required for testing
     testImplementation("org.hamcrest:hamcrest-all")
     testImplementation("junit:junit")
     testImplementation("org.openjdk.jmh:jmh-core")
 
+    // Compile-only dependencies: libraries needed at compile time only
     // See https://github.com/JetBrains/kotlin/blob/65b0a5f90328f4b9addd3a10c6f24f3037482276/libraries/examples/scripting/jvm-embeddable-host/build.gradle.kts#L8
     compileOnly(kotlin("scripting-jvm-host"))
+
+    // Test compile-only dependencies
     testCompileOnly(kotlin("scripting-jvm-host"))
 
+    // Annotation processors: libraries used for annotation processing
     annotationProcessor("org.openjdk.jmh:jmh-generator-annprocess")
 }
+
 
 configurations.forEach { config ->
     config.resolutionStrategy {
@@ -78,14 +78,17 @@ tasks.startScripts {
 }
 
 tasks.register<Exec>("fixFilePermissions") {
-    // When running on macOS or Linux the start script
-    // needs executable permissions to run.
+    group = "Distribution"
+    description = "Fix file permissions for the start script on macOS or Linux."
 
     onlyIf { !System.getProperty("os.name").lowercase().contains("windows") }
     commandLine("chmod", "+x", "${tasks.installDist.get().destinationDir}/bin/kotlin-language-server")
 }
 
 tasks.register<JavaExec>("debugRun") {
+    group = "Application"
+    description = "Run the application with debugging enabled."
+
     mainClass.set(serverMainClassName)
     classpath(sourceSets.main.get().runtimeClasspath)
     standardInput = System.`in`
@@ -97,6 +100,9 @@ tasks.register<JavaExec>("debugRun") {
 }
 
 tasks.register<CreateStartScripts>("debugStartScripts") {
+    group = "Distribution"
+    description = "Create start scripts with debug options for the application."
+
     applicationName = "kotlin-language-server"
     mainClass.set(serverMainClassName)
     outputDir = tasks.installDist.get().destinationDir.toPath().resolve("bin").toFile()
@@ -105,6 +111,9 @@ tasks.register<CreateStartScripts>("debugStartScripts") {
 }
 
 tasks.register<Sync>("installDebugDist") {
+    group = "Distribution"
+    description = "Install the debug distribution and create debug start scripts."
+
     dependsOn("installDist")
     finalizedBy("debugStartScripts")
 }

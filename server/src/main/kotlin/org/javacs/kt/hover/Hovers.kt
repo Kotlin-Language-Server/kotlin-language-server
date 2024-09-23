@@ -38,13 +38,12 @@ private fun typeHoverAt(file: CompiledFile, cursor: Int): Hover? {
     val expression = file.parseAtPoint(cursor)?.findParent<KtExpression>() ?: return null
     val javaDoc: String = expression.children.mapNotNull { (it as? PsiDocCommentBase)?.text }.map(::renderJavaDoc).firstOrNull() ?: ""
     val scope = file.scopeAtPoint(cursor) ?: return null
-    val hoverText = renderTypeOf(expression, file.bindingContextOf(expression, scope))
+    val hoverText = file.bindingContextOf(expression, scope)?.let { renderTypeOf(expression, it) }
     val hover = MarkupContent("markdown", listOf("```kotlin\n$hoverText\n```", javaDoc).filter { it.isNotEmpty() }.joinToString("\n---\n"))
     return Hover(hover)
 }
 
 // Source: https://github.com/JetBrains/kotlin/blob/master/idea/src/org/jetbrains/kotlin/idea/codeInsight/KotlinExpressionTypeProvider.kt
-
 private val TYPE_RENDERER: DescriptorRenderer by lazy { DescriptorRenderer.COMPACT.withOptions {
     textFormat = RenderingFormat.PLAIN
     classifierNamePolicy = object: ClassifierNamePolicy {

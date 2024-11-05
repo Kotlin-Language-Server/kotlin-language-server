@@ -45,14 +45,14 @@ class CompiledFile(
     }
 
     fun typeOfExpression(expression: KtExpression, scopeWithImports: LexicalScope): KotlinType? =
-            bindingContextOf(expression, scopeWithImports).getType(expression)
+        bindingContextOf(expression, scopeWithImports)?.getType(expression)
 
-    fun bindingContextOf(expression: KtExpression, scopeWithImports: LexicalScope): BindingContext =
-            classPath.compiler.compileKtExpression(expression, scopeWithImports, sourcePath, kind).first
+    fun bindingContextOf(expression: KtExpression, scopeWithImports: LexicalScope): BindingContext? =
+        classPath.compiler.compileKtExpression(expression, scopeWithImports, sourcePath, kind)?.first
 
     private fun expandForType(cursor: Int, surroundingExpr: KtExpression): KtExpression {
         val dotParent = surroundingExpr.parent as? KtDotQualifiedExpression
-        if (dotParent != null && dotParent.selectorExpression?.textRange?.contains(cursor) ?: false) {
+        if (dotParent != null && dotParent.selectorExpression?.textRange?.contains(cursor) == true) {
             return expandForType(cursor, dotParent)
         }
         else return surroundingExpr
@@ -75,7 +75,7 @@ class CompiledFile(
         val path = surroundingExpr.containingFile.toPath()
         val context = bindingContextOf(surroundingExpr, scope)
         LOG.info("Hovering {}", surroundingExpr)
-        return referenceFromContext(cursor, path, context)
+        return context?.let { referenceFromContext(cursor, path, it) }
     }
 
     /**

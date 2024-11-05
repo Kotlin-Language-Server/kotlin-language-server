@@ -60,7 +60,6 @@ import org.javacs.kt.LOG
 import org.javacs.kt.CodegenConfiguration
 import org.javacs.kt.CompilerConfiguration
 import org.javacs.kt.ScriptsConfiguration
-import org.javacs.kt.util.KotlinLSException
 import org.javacs.kt.util.LoggingMessageCollector
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
@@ -553,25 +552,37 @@ class Compiler(
         }
     }
 
-    fun compileKtExpression(expression: KtExpression, scopeWithImports: LexicalScope, sourcePath: Collection<KtFile>, kind: CompilationKind = CompilationKind.DEFAULT): Pair<BindingContext, ComponentProvider> {
-        try {
+    fun compileKtExpression(
+        expression: KtExpression,
+        scopeWithImports: LexicalScope,
+        sourcePath: Collection<KtFile>,
+        kind: CompilationKind = CompilationKind.DEFAULT
+    ): Pair<BindingContext, ComponentProvider>? {
+        return try {
             // Use same lock as 'compileFile' to avoid concurrency issues such as #42
             compileLock.withLock {
                 val compileEnv = compileEnvironmentFor(kind)
                 val (container, trace) = compileEnv.createContainer(sourcePath)
                 val incrementalCompiler = container.get<ExpressionTypingServices>()
                 incrementalCompiler.getTypeInfo(
-                        scopeWithImports,
-                        expression,
-                        TypeUtils.NO_EXPECTED_TYPE,
-                        DataFlowInfo.EMPTY,
-                        InferenceSession.default,
-                        trace,
-                        true)
-                return Pair(trace.bindingContext, container)
+                    scopeWithImports,
+                    expression,
+                    TypeUtils.NO_EXPECTED_TYPE,
+                    DataFlowInfo.EMPTY,
+                    InferenceSession.default,
+                    trace,
+                    true
+                )
+                Pair(trace.bindingContext, container)
             }
         } catch (e: KotlinFrontEndException) {
-            throw KotlinLSException("Error while analyzing: ${describeExpression(expression.text)}", e)
+            LOG.error("""
+                Error while analyzing expression: ${describeExpression(expression.text)}
+                Message: ${e.message}
+                Cause: ${e.cause?.message}
+                Stack trace: ${e.attachments.joinToString("\n") { it.displayText }}
+            """.trimIndent())
+            null
         }
     }
 

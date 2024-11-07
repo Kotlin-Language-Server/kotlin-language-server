@@ -6,7 +6,7 @@ javaPlatform {
     allowDependencies()
 }
 
-val kotlinVersion = "2.0.20"
+val kotlinVersion = "2.0.21"
 val exposedVersion = "0.37.3"
 val lsp4jVersion = "0.21.2"
 val guavaVersion= "33.3.0-jre"
